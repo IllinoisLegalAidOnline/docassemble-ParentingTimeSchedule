@@ -1,0 +1,651 @@
+#################### REVIEW SCREEN #########################
+id: review screen
+event: review_answers
+question: |
+  Review screen
+subquestion: |
+  Edit your answers below.
+review:
+  - note: |
+      <h4>About you</h4>
+  - Edit: users[0].name.first
+    button: |
+      **Your name:** ${ users[0].name.full(middle="full") }
+  - Edit: users[0].birthdate
+    button: |
+      **Your birth date:** ${ users[0].birthdate }
+  - Edit: hide_address
+    button: |
+      **Keep your address hidden?** ${ word(yesno(hide_address)) }
+  - Edit: users[0].address.address
+    button: |
+      **Mailing address:** ${ users[0].address.on_one_line(bare=True) }
+  - Edit: users[0].phone_number
+    button: |
+      **Your phone number:**
+      % if users[0].phone_number:
+      ${ phone_number_formatted(users[0].phone_number) }
+      % else:
+      No phone number entered
+      % endif
+  - Edit: users[0].has_email_address
+    button: |
+      **Do you have an email address?** ${ word(yesno(users[0].has_email_address)) }
+  - Edit: users[0].email
+    button: |
+      **Your email address:** ${ users[0].email }
+    show if: users[0].has_email_address
+  - note: |
+      <h4>About the children</h4>
+  - Edit: children.revisit
+    button: |
+      **Children:**
+      % for child in children:
+      * ${ child.name_full() }, born ${ child.birthdate }, lives with you: ${ word(yesno(child.lives_with_user)) }
+      % endfor
+  - note: |
+      <h4>About the other parent</h4>
+  - Edit: other_parties[0].name.first
+    button: |
+      **Other parent's name:** ${ other_parties[0].name_full() }
+  - Edit: knows_other_parent_dob
+    button: |
+      **Do you know the other parent's birth date?** ${ word(yesno(knows_other_parent_dob)) }
+  - Edit: other_parties[0].birthdate
+    button: |
+      **Other parent's birth date:** ${ other_parties[0].birthdate }
+    show if: knows_other_parent_dob
+  - Edit: knows_other_parent_address
+    button: |
+      **Do you know where the other parent lives?** ${ word(yesno(knows_other_parent_address)) }
+  - Edit: other_parties[0].address.address
+    button: |
+      **Other parent's address:** ${ other_parties[0].address.on_one_line(bare=True) }
+    show if: knows_other_parent_address
+  - Edit: other_parent_has_lawyer
+    button: |
+      **Does the other parent have a lawyer?**
+      % if not other_parent_has_lawyer:
+      I don't know
+      % else:
+      ${ word(yesno(other_parent_has_lawyer)) }
+      % endif
+  - Edit: other_parent_lawyers[0].name.first
+    button: |
+      **Other parent's lawyer:** ${ other_parent_lawyers[0].name_full() }
+    show if: other_parent_has_lawyer
+  - note: |
+      <h4>Schedule</h4>
+  - Edit: have_set_schedule
+    button: |
+      **Does the current order have a set schedule?** ${ word(yesno(have_set_schedule)) }
+  - Edit: changed_circumstances
+    button: |
+      **Why should the schedule change?** ${ changed_circumstances }
+    show if: not have_set_schedule
+  - Edit: schedule_start
+    button: |
+      **When should the new schedule start?**
+      % if schedule_start == 'specific':
+      ${ schedule_start_date }
+      % else:
+      When the court orders the new schedule
+      % endif
+  - Edit: schedule_start_date
+    button: |
+      **Start date:** ${ schedule_start_date }
+    show if: schedule_start == 'specific'
+  - Edit: weekly_schedule
+    button: |
+      **Include a weekly parenting time schedule?** ${ word(yesno(weekly_schedule)) }
+  - Edit: users[0].name.initials
+    button: |
+      **Parent initials:** ${ users[0].name.initials } and ${ other_parties[0].name.initials }
+    show if: weekly_schedule or holiday_list.any_true()
+  - Edit: week.revisit
+    button: |
+      **Weekly parenting time schedules:** ${ week.number_gathered() }
+    show if: weekly_schedule
+  - Edit: parenting_holiday
+    button: |
+      **Holiday schedule:**
+      % if parenting_holiday == 'holiday_option2':
+      Each holiday is handled separately
+      % else:
+      I will decide holiday parenting time later
+      % endif
+    show if: holiday_list.any_true()
+  - Edit: holiday_list.revisit
+    button: |
+      **Selected holidays:** ${ comma_and_list(holiday_list.true_values()) }
+    show if: holiday_list.any_true()
+  - Edit: other_holidays.revisit
+    button: |
+      **Additional holidays:** ${ other_holidays.number_gathered() }
+    show if: other_holidays.number_gathered() > 0
+  - Edit: school_breaks
+    button: |
+      **Include school break schedules?** ${ word(yesno(school_breaks)) }
+  - Edit: spring_break
+    button: |
+      **Spring break:** ${ spring_break }
+      % if spring_break == 'split':
+      Parent with even-numbered years: ${ 'Me' if spring_break_year == 'me' else other_parties[0].name_full() }
+      % elif spring_break == 'other':
+      ${ spring_break_other } (${ spring_break_start } to ${ spring_break_end })
+      % endif
+    show if: school_breaks
+  - Edit: summer_break
+    button: |
+      **Summer break:** ${ summer_break }
+      % if summer_break == 'split':
+      Parent with first choice in even-numbered years: ${ 'Me' if summer_break_year == 'me' else other_parties[0].name_full() }
+      % elif summer_break == 'other':
+      ${ summer_break_other } (${ summer_break_start } to ${ summer_break_end })
+      % endif
+    show if: school_breaks
+  - Edit: winter_break
+    button: |
+      **Winter break:** ${ winter_break }
+      % if winter_break == 'split':
+      Parent with even-numbered years: ${ 'Me' if winter_break_year == 'me' else other_parties[0].name_full() }
+      % elif winter_break == 'other':
+      ${ winter_break_other } (${ winter_break_start } to ${ winter_break_end })
+      % endif
+    show if: school_breaks
+  - Edit: transportation
+    button: |
+      **Transportation:**
+      % if transportation == 'me':
+      I will provide all transportation
+      % elif transportation == 'them':
+      ${ other_parties[0].name_full() } will provide all transportation
+      % elif transportation == 'pick_up':
+      Each parent will pick up the children at the start of their parenting time
+      % elif transportation == 'drop_off':
+      Each parent will drop off the children at the end of their parenting time
+      % else:
+      Other: ${ transportation_other }
+      % endif
+  - Edit: exchange_location
+    button: |
+      **Exchange location:**
+      % if exchange_location == 'homes':
+      Each parent's home, unless both agree to another meeting place
+      % else:
+      ${ exchange_address.location }, ${ exchange_address.address.on_one_line(bare=True) }
+      % endif
+  - Edit: additional_time
+    button: |
+      **Add more parenting time information?** ${ word(yesno(additional_time)) }
+  - Edit: additional_time_details
+    button: |
+      **Additional parenting time information:** ${ additional_time_details }
+    show if: additional_time
+  - note: |
+      <h4>Case details</h4>
+  - Edit: filing_county
+    button: |
+      **County where the case is filed:** ${ filing_county }
+  - Edit: order_date
+    button: |
+      **Date of the current order:** ${ order_date }
+  - Edit: case_number
+    button: |
+      **Case number:** ${ case_number }
+      % if ivd_case_number:
+      **IV-D case number:** ${ ivd_case_number }
+      % endif
+  - Edit: party_label
+    button: |
+      **Your role in the case:** ${ party_label.capitalize() }
+  - note: |
+      <h4>Notice and delivery</h4>
+  - Edit: has_court_date
+    button: |
+      **Do you have a court date scheduled?** ${ word(yesno(has_court_date)) }
+  - Edit: hearing_date
+    button: |
+      **Court hearing:** ${ hearing_date } at ${ format_time(hearing_time, 'h:mm a') }
+    show if: has_court_date
+  - Edit: attend_court
+    button: |
+      **How to attend court:**
+      % if attend_court['in_person'] and attend_court['remote']:
+      In person and remotely
+      % elif attend_court['in_person']:
+      In person
+      % elif attend_court['remote']:
+      Remotely
+      % else:
+      I don't know yet
+      % endif
+      % if attend_court['remote']:
+      ${ remote_website } ${ remote_login } ${ phone_number_formatted(remote_phone) }
+      % endif
+    show if: has_court_date
+  - Edit: delivery_parties[0].review_delivery
+    button: |
+      **Delivery to ${ delivery_parties[0].name_full() }**
+  - Edit: delivery_parties[1].review_delivery
+    button: |
+      **Delivery to ${ delivery_parties[1].name_full() } (lawyer)**
+    show if: other_parent_has_lawyer
+  - Edit: e_signature
+    button: |
+      **Add e-signature?** ${ word(yesno(e_signature)) }
+---
+id: about you review screen
+section: About you
+event: section_about_you
+question: |
+  About you
+subquestion: |
+  Edit your answers below.
+review:
+  - Edit: users[0].name.first
+    button: |
+      **Your name:** ${ users[0].name.full(middle="full") }
+  - Edit: users[0].birthdate
+    button: |
+      **Your birth date:** ${ users[0].birthdate }
+  - Edit: hide_address
+    button: |
+      **Keep your address hidden?** ${ word(yesno(hide_address)) }
+  - Edit: users[0].address.address
+    button: |
+      % if hide_address:
+      **Mailing address:**
+      % else:
+      **Home address:**
+      % endif
+      ${ users[0].address.on_one_line(bare=True) }
+  - Edit: users[0].phone_number
+    button: |
+      **Your phone number:**
+      % if users[0].phone_number:
+      ${ phone_number_formatted(users[0].phone_number) }
+      % else:
+      No phone number entered
+      % endif
+  - Edit: users[0].has_email_address
+    button: |
+      **Do you have an email address?** ${ word(yesno(users[0].has_email_address)) }
+  - Edit: users[0].email
+    button: |
+      **Your email address:** ${ users[0].email }
+    show if: users[0].has_email_address
+---
+id: about children review screen
+section: About your children
+event: section_about_children
+question: |
+  About your children
+subquestion: |
+  Edit your answers below.
+review:
+  - Edit: children.revisit
+    button: |
+      **Children:**
+      % for child in children:
+      * ${ child.name_full() }, born ${ child.birthdate }, lives with you: ${ word(yesno(child.lives_with_user)) }
+      % endfor
+---
+id: about other parent review screen
+section: About the other parent
+event: section_about_other_parent
+question: |
+  About the other parent
+subquestion: |
+  Edit your answers below.
+review:
+  - Edit: other_parties[0].name.first
+    button: |
+      **Other parent's name:** ${ other_parties[0].name_full() }
+  - Edit: knows_other_parent_dob
+    button: |
+      **Do you know the other parent's birth date?** ${ word(yesno(knows_other_parent_dob)) }
+  - Edit: other_parties[0].birthdate
+    button: |
+      **Other parent's birth date:** ${ other_parties[0].birthdate }
+    show if: knows_other_parent_dob
+  - Edit: knows_other_parent_address
+    button: |
+      **Do you know where the other parent lives?** ${ word(yesno(knows_other_parent_address)) }
+  - Edit: other_parties[0].address.address
+    button: |
+      **Other parent's address:** ${ other_parties[0].address.on_one_line(bare=True) }
+    show if: knows_other_parent_address
+  - Edit: other_parent_has_lawyer
+    button: |
+      **Does the other parent have a lawyer?**
+      % if not other_parent_has_lawyer:
+      I don't know
+      % else:
+      ${ word(yesno(other_parent_has_lawyer)) }
+      % endif
+  - Edit: other_parent_lawyers[0].name.first
+    button: |
+      **Other parent's lawyer:** ${ other_parent_lawyers[0].name_full() }
+    show if: other_parent_has_lawyer
+---
+id: schedule review screen
+section: Schedule
+event: section_schedule
+question: |
+  Schedule
+subquestion: |
+  Edit your answers below.
+review:
+  - Edit: have_set_schedule
+    button: |
+      **Does the current order have a set schedule?** ${ word(yesno(have_set_schedule)) }
+  - Edit: changed_circumstances
+    button: |
+      **Why should the schedule change?** ${ changed_circumstances }
+    show if: not have_set_schedule
+  - Edit: schedule_start
+    button: |
+      **When should the new schedule start?**
+      % if schedule_start == 'specific':
+      ${ schedule_start_date }
+      % else:
+      When the court orders the new schedule
+      % endif
+  - Edit: schedule_start_date
+    button: |
+      **Start date:** ${ schedule_start_date }
+    show if: schedule_start == 'specific'
+  - Edit: weekly_schedule
+    button: |
+      **Include a weekly parenting time schedule?** ${ word(yesno(weekly_schedule)) }
+  - Edit: week.revisit
+    button: |
+      **Weekly schedules:** ${ week.number_gathered() }
+    show if: weekly_schedule
+  - Edit: parenting_holiday
+    button: |
+      **Holiday schedule:**
+      % if parenting_holiday == 'holiday_option2':
+      Each holiday is handled separately
+      % else:
+      I will decide holiday parenting time later
+      % endif
+    show if: holiday_list.any_true()
+  - Edit: holiday_list.revisit
+    button: |
+      **Selected holidays:** ${ comma_and_list(holiday_list.true_values()) }
+    show if: holiday_list.any_true()
+  - Edit: other_holidays.revisit
+    button: |
+      **Additional holidays:** ${ other_holidays.number_gathered() }
+    show if: other_holidays.number_gathered() > 0
+  - Edit: school_breaks
+    button: |
+      **Include school break schedules?** ${ word(yesno(school_breaks)) }
+  - Edit: spring_break
+    button: |
+      **Spring break:** ${ spring_break }
+      % if spring_break == 'split':
+      Parent with even-numbered years: ${ 'Me' if spring_break_year == 'me' else other_parties[0].name_full() }
+      % elif spring_break == 'other':
+      ${ spring_break_other } (${ spring_break_start } to ${ spring_break_end })
+      % endif
+    show if: school_breaks
+  - Edit: summer_break
+    button: |
+      **Summer break:** ${ summer_break }
+      % if summer_break == 'split':
+      Parent with first choice in even-numbered years: ${ 'Me' if summer_break_year == 'me' else other_parties[0].name_full() }
+      % elif summer_break == 'other':
+      ${ summer_break_other } (${ summer_break_start } to ${ summer_break_end })
+      % endif
+    show if: school_breaks
+  - Edit: winter_break
+    button: |
+      **Winter break:** ${ winter_break }
+      % if winter_break == 'split':
+      Parent with even-numbered years: ${ 'Me' if winter_break_year == 'me' else other_parties[0].name_full() }
+      % elif winter_break == 'other':
+      ${ winter_break_other } (${ winter_break_start } to ${ winter_break_end })
+      % endif
+    show if: school_breaks
+  - Edit: transportation
+    button: |
+      **Transportation:**
+      % if transportation == 'me':
+      I will provide all transportation
+      % elif transportation == 'them':
+      ${ other_parties[0].name_full() } will provide all transportation
+      % elif transportation == 'pick_up':
+      Each parent will pick up the children at the start of their parenting time
+      % elif transportation == 'drop_off':
+      Each parent will drop off the children at the end of their parenting time
+      % else:
+      Other: ${ transportation_other }
+      % endif
+  - Edit: exchange_location
+    button: |
+      **Exchange location:**
+      % if exchange_location == 'homes':
+      Each parent's home, unless both agree to another meeting place
+      % else:
+      ${ exchange_address.location }, ${ exchange_address.address.on_one_line(bare=True) }
+      % endif
+  - Edit: additional_time
+    button: |
+      **Add more parenting time information?** ${ word(yesno(additional_time)) }
+  - Edit: additional_time_details
+    button: |
+      **Additional parenting time information:** ${ additional_time_details }
+    show if: additional_time
+---
+id: case details review screen
+section: Case details
+event: section_case
+question: |
+  Case details
+subquestion: |
+  Edit your answers below.
+review:
+  - Edit: filing_county
+    button: |
+      **County where the case is filed:** ${ filing_county }
+  - Edit: order_date
+    button: |
+      **Date of the current order:** ${ order_date }
+  - Edit: case_number
+    button: |
+      **Case number:** ${ case_number }
+      % if ivd_case_number:
+      **IV-D case number:** ${ ivd_case_number }
+      % endif
+  - Edit: party_label
+    button: |
+      **Your role in the case:** ${ party_label.capitalize() }
+---
+id: notice and delivery review screen
+section: Notice and delivery
+event: section_delivery
+question: |
+  Notice and delivery
+subquestion: |
+  Edit your answers below.
+review:
+  - Edit: has_court_date
+    button: |
+      **Do you have a court date scheduled?** ${ word(yesno(has_court_date)) }
+  - Edit: hearing_date
+    button: |
+      **Court hearing:** ${ hearing_date } at ${ format_time(hearing_time, 'h:mm a') }
+    show if: has_court_date
+  - Edit: attend_court
+    button: |
+      **How to attend court:**
+      % if attend_court['in_person'] and attend_court['remote']:
+      In person and remotely
+      % elif attend_court['in_person']:
+      In person
+      % elif attend_court['remote']:
+      Remotely
+      % else:
+      I don't know yet
+      % endif
+    show if: has_court_date
+  - Edit: remote_website
+    button: |
+      **Video conference website:** ${ remote_website }
+    show if: has_court_date and attend_court['remote']
+  - Edit: remote_login
+    button: |
+      **Video conference log-in information:** ${ remote_login }
+    show if: has_court_date and attend_court['remote']
+  - Edit: remote_phone
+    button: |
+      **Call-in phone number:** ${ phone_number_formatted(remote_phone) }
+    show if: has_court_date and attend_court['remote']
+  - Edit: delivery_parties[0].review_delivery
+    button: |
+      **Delivery to ${ delivery_parties[0].name_full() }**
+  - Edit: delivery_parties[1].review_delivery
+    button: |
+      **Delivery to ${ delivery_parties[1].name_full() } (lawyer)**
+    show if: other_parent_has_lawyer
+  - Edit: e_signature
+    button: |
+      **Add e-signature?** ${ word(yesno(e_signature)) }
+---
+id: delivery party review screen
+continue button field: x.review_delivery
+generic object: ALIndividual
+section: Notice and delivery
+question: |
+  Edit delivery information for ${ x.name_full() }
+subquestion: |
+  Edit how and when you will deliver forms to this party.
+review:
+  - Edit: x.knows_delivery_method
+    button: |
+      **Do you know how and when you will deliver the forms?** ${ word(yesno(x.knows_delivery_method)) }
+  - Edit: x.email_delivery
+    button: |
+      **Delivery methods:**
+      % if x.email_delivery:
+      Email
+      % endif
+      % if x.physical_delivery:
+      Paper delivery
+      % endif
+      % if not x.email_delivery and not x.physical_delivery:
+      None entered
+      % endif
+    show if: x.knows_delivery_method
+  - Edit: x.delivery_date
+    button: |
+      **Delivery date and time:**
+      % if x.knows_delivery_date and x.knows_delivery_time:
+      ${ x.delivery_date } at ${ format_time(x.delivery_time, 'h:mm a') }
+      % elif x.knows_delivery_date:
+      ${ x.delivery_date }; time not entered
+      % elif x.knows_delivery_time:
+      Date not entered; ${ format_time(x.delivery_time, 'h:mm a') }
+      % else:
+      Not entered
+      % endif
+    show if: x.knows_delivery_method
+---
+################ REVISIT TABLES ###################
+id: children table
+table: children.table
+rows: children
+columns:
+  - Child name: |
+      row_item.name.full()
+  - Age: |
+      row_item.age_in_years() if row_item.age_in_years() > 1 else str(row_item.age_in_months()) + ' months'
+  - Lives with you?: |
+      word(yesno(row_item.lives_with_user))
+  - Edit name: |
+      action_button_html(url_action(row_item.attr_name("name.first")), label="Edit", icon="pencil-alt")
+  - Edit age: |
+      action_button_html(url_action(row_item.attr_name("birthdate")), label="Edit", icon="pencil-alt")
+  - Edit residence: |
+      action_button_html(url_action(row_item.attr_name("lives_with_user")), label="Edit", icon="pencil-alt")
+delete buttons: True
+confirm: True
+---
+id: children review screen
+continue button field: children.revisit
+question: |
+  Edit information about your children
+subquestion: |
+  ${ children.table }
+
+  % if children.number_gathered() < 7:
+  ${ children.add_action() }
+  % endif
+---
+id: week table
+table: week.table
+rows: week
+columns:
+  - Week: |
+      row_item.name
+delete buttons: True
+confirm: True
+---
+id: week review screen
+continue button field: week.revisit
+question: |
+  Edit weekly parenting time
+subquestion: |
+  **Initials for each parent:**
+
+  * ${ users[0].name.full(middle="full") } will use ${ users[0].name.initials }
+  * ${ other_parties[0].name.full(middle="full") } will use ${ other_parties[0].name.initials }
+
+  % for week_index, current_week in enumerate(week):
+  **${ current_week.name }**
+  % for day_index, current_day in enumerate(current_week.day):
+  * ${ current_day.name }: ${ action_button_html(url_action('week[' + str(week_index) + '].day[' + str(day_index) + '].time_8_am'), label="Edit", icon="pencil-alt") }
+  % endfor
+  % endfor
+
+  ${ week.table }
+  % if week.number_gathered() < 4:
+  ${ week.add_action() }
+  % endif
+---
+id: holidays review screen
+continue button field: holiday_list.revisit
+question: |
+  Edit holiday schedules
+subquestion: |
+  % for holiday_name, holiday_obj in holiday_objects.items():
+  % if holiday_list[holiday_name]:
+  * ${ holiday_name }: ${ action_button_html(url_action(holiday_obj.attr_name("holiday_year")), label="Edit", icon="pencil-alt") }
+  % endif
+  % endfor
+---
+id: additional holidays table
+table: other_holidays.table
+rows: other_holidays
+columns:
+  - Additional holiday: |
+      row_item.name
+  - Edit details: |
+      action_button_html(url_action(row_item.attr_name("holiday_year")), label="Edit", icon="pencil-alt")
+delete buttons: True
+confirm: True
+---
+id: additional holidays review screen
+continue button field: other_holidays.revisit
+question: |
+  Edit additional holidays
+subquestion: |
+  ${ other_holidays.table }
+
+  % if other_holidays.number_gathered() < 5:
+  **Note:** You can add up to five additional holidays.
+  ${ other_holidays.add_action() }
+  % endif
