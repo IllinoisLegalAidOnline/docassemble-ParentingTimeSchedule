@@ -22,6 +22,7 @@ objects:
   - lawyer: ALIndividual
   - lawyer.address: ALAddress
   - other_parent_lawyers: ALPeopleList.using(there_are_any=True, complete_attribute='complete')
+  - other_parent_lawyers[i].jail_delivery_address: ALAddress
   - children: ALPeopleList.using(object_type=ALIndividual, there_are_any=True, complete_attribute='complete')
   - delivery_parties: ALPeopleList.using(there_are_any=True)
   - court_list: ALCourtLoader.using(file_name='docassemble.ILAO:data/sources/il_courts.xlsx')
@@ -38,7 +39,6 @@ objects:
   - christmas_eve: Thing
   - christmas_day: Thing
   - new_years_eve: Thing
-  - holiday_list: DAList.using(object_type=Thing, there_are_any=False)
   - exchange_address: ALIndividual
   - other_holidays: DAList.using(object_type=Thing, complete_attribute='complete')
 ---
@@ -101,12 +101,14 @@ code: |
   nav.set_section('section_about_other_parent')
   other_parent_intro
   other_parties[0].name.first
-  other_parties[0].birthdate
-  other_parties[0].address.address
+  knows_other_parent_dob
+  if knows_other_parent_address:
+    other_parties[0].address.address
   if other_parent_has_lawyer:
     other_parent_lawyers.gather()
   
-  if not have_set_schedule:
+  nav.set_section('section_schedule')
+  if have_set_schedule:
     changed_circumstances
 
   schedule_start
@@ -120,7 +122,9 @@ code: |
   if holiday_list.any_true():
     users[0].name.initials
     prepopulated_holidays
-    other_holidays.gather()
+  other_holidays.gather()
+  if other_holidays.number_gathered() > 0:
+    users[0].name.initials
   
   if school_breaks:
     spring_break
@@ -162,6 +166,7 @@ code: |
   nav.set_section('section_download')
   
   forms_assembling
+  refresh_delivery_bundle
   snapshot_forms
   get_docs_screen
 ---
@@ -179,9 +184,7 @@ code: |
   stuff_to_snapshot['zip'] = showifdef('users[0].address.zip')
 
   if defined('have_set_schedule'):
-    stuff_to_snapshot['motion_type'] = 'modify'
-  else:
-    stuff_to_snapshot['motion_type'] = 'specify'
+    stuff_to_snapshot['motion_type'] = 'modify' if have_set_schedule else 'specify'
   
   stuff_to_snapshot['downloaded_forms'] = showifdef('forms_assembling')
   
@@ -220,6 +223,7 @@ code: |
     "Christmas Day": christmas_day,
     "New Year's Eve": new_years_eve
   }
+
 ---
 code: |
   def get_holiday_name(obj):
@@ -230,13 +234,11 @@ code: |
 ---
 id: welcome
 question: |
-  Request to change child support
+  Make or change a parenting time schedule
 subquestion: |
-  Welcome to Illinois Legal Aid Online's **Request to change child support** Easy Form.
+  Welcome to Illinois Legal Aid Online's **Make or change a parenting time schedule** Easy Form.
 
-  This program helps you make a *Motion to Modify Child Support* to increase, decrease, or end child support for your children. You can use this if you are paying or receiving child support.
-  
-  To learn more, read ILAO's article about [**changing or ending child support payments**](https://www.illinoislegalaid.org/node/183971).
+  This program helps you ask the court to make or change a parenting time schedule for your children.
 continue button field: sees_nav_bar
 ---
 id: instructions
@@ -246,8 +248,8 @@ question: |
 subquestion: |
   To use this program you will need: 
 
-  * A child support order from an Illinois court, 
-  * A change of circumstances for you, the other parent, or the children,
+  * A parenting time or visitation order from an Illinois court,
+  * Information about changed circumstances if the order already has a set schedule,
   * Information about the other parent, and  
   * Information about the other parent's lawyer, if any. 
 
@@ -287,7 +289,7 @@ continue button field: whats_next
 question: |
   What's next
 subquestion: |
-  After you download your *Motion to Modify Child Support*, you must file it with the court. This program **does not file** your *Motion* for you.
+  After you download your parenting time *Motion*, you must file it with the court. This program **does not file** your *Motion* for you.
   
   You may need to schedule a court date for when the judge will hear your motion. The scheduling process is different depending on your location and case type. Check with your local circuit clerk for how to schedule a motion hearing.
   
@@ -323,7 +325,7 @@ id: is child resident
 question: |
   Did the children whose parenting time you want to change live in IL for the last 6 months?
 subquestion: |
-  Majority of 6 months
+  Consider the six months immediately before you file. The children must have lived in Illinois for more than half of that time.
 fields:
   - no label: is_child_resident
     datatype: yesnoradio
@@ -343,7 +345,7 @@ event: user_not_parent_kickout
 question: |
   Sorry
 subquestion: |
-  You can only use this program if you are not a legal parent of the children.
+  You can only use this program if you are a legal parent of the children.
 
   Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area.
 buttons:
@@ -403,7 +405,7 @@ id: children info
 question: |
   About your children
 subquestion: |
-  Parenting time for all children. if different for different children, talk with lawyer.
+  Parenting time applies to all children. If the schedule differs for any child, talk with a lawyer.
 continue button field: children_intro
 ---
 code: |
@@ -602,7 +604,7 @@ question: |
 subquestion: |
   A set schedule would include:
 
-  - Days and times when the ${ children.comma_and_list() } will be with each parent, or.
+  - Days and times when the ${ children.comma_and_list() } will be with each parent, or
 
   - A formula or way to determine such a schedule.
 
@@ -614,7 +616,9 @@ fields:
     datatype: yesnoradio
   - note: |
       **Note:** Your motion will say that you and ${ other_parties[0].name_full() } have not been able to agree on consistent days and times for parenting time.
-    show if: have_set_schedule
+    show if:
+      variable: have_set_schedule
+      is: False
 ---
 id: changed circumstances
 question: |
@@ -938,20 +942,7 @@ css: |
   </style>
   
 ---
-depends on:
-  - holiday_time
-id: parenting time holiday
-question: |
-  How do you want to handle parenting time during holidays?
-subquestion: |
-    ${ collapse_template(parenting_time_conflicts_help) }
-fields:
-  - no label: parenting_holiday
-    datatype: radio
-    choices: 
-      - Each holiday is **handled separately**. For each holiday, you can decide if you want any changes to the regular parenting time schedule.: holiday_option2
-      - I will decide holiday parenting time later. This means I will fill out the schedule by hand or attach one to the *${form_name}*.: other
----
+# This is referenced still for other questions
 template: parenting_time_conflicts_help
 subject: |
   **Learn about parenting time conflicts during holidays and school breaks**
@@ -1369,38 +1360,20 @@ id: filing county
 question: |
   In which county is the case filed?
 fields:
-  - County: filing_county
-    choices: 
-      code: |
-        court_list._load_courts()['address_county'].items()
----
-id: child support order type
-question: |
-  What kind of child support order do you want to change?
-subquestion: |
-  Judicial child support orders come through the courts and are signed by a judge. The parents might have started the case on their own, or the State's Attorney or Attorney General's office might be involved. Examples include: Judgment for Dissolution of Marriage, Order for Support, or Order of Parentage.
-
-  Administrative child support orders are set up through Child Support Services, part of the Illinois Department of Healthcare and Family Services (IDHFS). These are sometimes called Title IV-D cases.
-fields:
-  - Child support order type: order_type
-    input type: radio
-    choices:
-      - Administrative IV-D (through IDHFS): admin
-      - Judicial (through court): judicial
-      - Registered IV-D support order: registered
-        help: |
-          Select **Registered IV-D support order** if the original order was an administrative IV-D support order obtained through IDHFS and then registered with a clerk of the circuit court. Registering the order would give it a court case number that will be used when you file your motion.
-      - I'm not sure.: idk
+  - County: trial_court_index
+    datatype: integer
+    code: |
+      court_county_lookup()
 ---
 id: order date
 question: |
-  Support order date
+  Parenting time or visitation order date
 subquestion: |
-  The date should appear on the support order near the judge's signature.
+  The date should appear on the parenting time or visitation order near the judge's signature.
 
-  **Note:** You may want to wait at least 30 days after the support order was signed before asking the court to change it. A party to a lawsuit can file a Motion to Reconsider within 30 days of the entry of an order. Waiting until after that 30-day period can save you time and resources. To learn more, read ILAO's article about [**Motions to reconsider**](https://www.illinoislegalaid.org/node/175306).
+  **Note:** You may want to wait at least 30 days after the order was signed before asking the court to change it. A party to a lawsuit can file a Motion to Reconsider within 30 days of the entry of an order. Waiting until after that 30-day period can save you time and resources. To learn more, read ILAO's article about [**Motions to reconsider**](https://www.illinoislegalaid.org/node/175306).
 fields:
-  - When was the child support entered by the court?: order_date
+  - When was the parenting time or visitation order entered by the court?: order_date
     datatype: ThreePartsDate
     alMax: ${ today().format("yyyy-MM-dd") }
 ---
@@ -1464,9 +1437,7 @@ continue button field: notice_intro
 question: |
   Let the other parent know about your motion
 subquestion: |
-  You must let ${ other_parties[0].name_full() } know about your motion and when you will present it to the judge. If they have a lawyer in the case where child support was ordered and that case is ongoing, you must let their lawyer know.
-
-  If the Illinois Department of Healthcare and Family Services (IDHFS) was involved in an earlier administrative support order, they may need to be notified. Also, if the State's Attorney's office was involved in the earlier support order, they must be notified.
+  You must let ${ other_parties[0].name_full() } know about your motion and when you will present it to the judge. If they have a lawyer in the parenting time case and that case is ongoing, you must let their lawyer know.
 
   **Note:** You must deliver your forms before the court date when you will present your motion to the judge.
 ---
@@ -1492,12 +1463,24 @@ subquestion: |
   If you do not have this information now, you can click **Back** and change your answer.
 
   **Note:** Be sure to add the date and time to your *Notice of Court Date for Motion* before you send it to other parties in your case.
+
+  ${ collapse_template(hearing_info_help) }  
 fields:
   - Hearing date: hearing_date
     datatype: date
     min: ${ today().format("yyyy-MM-dd") }
   - Hearing time: hearing_time
     datatype: time
+---
+template: hearing_info_help
+subject: |
+  **See where to put hearing information on your forms**
+content: |  
+  You can put information on how to attend court on the bottom of page 1 of your *Notice of Court Date for Motion*.
+
+  We will add the courtroom address to your forms. To get the other information, contact your Circuit Clerk. You can look up how to contact them using [**Find Your Court**](https://www.illinoiscourts.gov/courts-directory/interactive-map/by-court-type/) on the Illinois Courts website.
+  
+  [FILE hearing_information.png, 100%, Part of Notice of Court Date for Motion form]
 ---
 id: hearing attendance
 question: |
@@ -1541,7 +1524,7 @@ fields:
 id: delivery intro
 continue button field: delivery_intro
 question: |
-  Send your Motion to Modify Child Support to all other parties
+  Send your parenting time Motion to all other parties
 subquestion: |
   These are the other parties in this case: ${comma_and_list(delivery_parties.full_names())}.
 
@@ -1774,26 +1757,6 @@ subquestion: |
   * If they do have a lawyer, you can hand-deliver the forms to the lawyer or to the lawyer's office.
 
 ---
-id: trial court county
-continue button field: case_county
-question: |
-  % if order_type == "registered":
-  In which county was the support order registered?
-  % else:
-  In which county was the support order entered?
-  % endif
-subquestion: |
-  % if order_type == "registered":
-  This is where you will file your *Motion to Modify Child Support*.
-  
-  % endif
-  The county is usually listed at the top of the first page of the court order.
-fields:
-  - County: trial_court_index
-    datatype: integer
-    code: |
-      court_county_lookup()
----
 code: |
   def court_county_lookup(lowercase=False):
     all_court_counties = court_list._load_courts()['address_county'].items()
@@ -1819,6 +1782,15 @@ code: |
   court_state = str(trial_court.address.state)
   court_zip = str(trial_court.address.zip)
   courthouse_info = court_name + ", " + court_street_address + ", " + court_city + ", " + court_state
+---
+depends on:
+  - trial_court_index
+code: |
+  # Use the county name for Word templates and the same selection for PDFs.
+  if trial_court_index == -1:
+    filing_county = 'Cook'
+  else:
+    filing_county = str(court_list._load_courts()['address_county'][trial_court_index])
 ---
 id: Cook County district
 question: |
@@ -1950,7 +1922,7 @@ subquestion: |
 
   <div class="alert alert-info ilao-info" role="alert">
     <h6 class="alert-heading">What it means to sign your forms</h6>
-    <p>By signing the <i>Motion to Modify Child Support</i> and Proof of Delivery section of your forms, you are certifying that:</p>
+    <p>By signing the parenting time <i>Motion</i> and Proof of Delivery section of your forms, you are certifying that:</p>
     <p><ul>
       <li>Everything on the forms is true and correct, or you have been informed or believe it to be true and correct, and</li>
       <li>You understand that making a false statement on the forms is perjury and has penalties provided by law.</li>    </ul></p>
@@ -2020,7 +1992,7 @@ under: |
 generic object: ALDocumentBundle
 template: x.send_email_template
 subject: |
-  Motion to Modify Child Support forms
+  Parenting time schedule forms
 content: |
   Your forms are attached.
   
@@ -2029,7 +2001,6 @@ content: |
   [Illinois Legal Aid Online](https://www.illinoislegalaid.org)
 ---
 ########### ATTACHMENTS ##############
----
 objects:
   - parenting_time_instructions: ALDocument.using(title="Parenting time instructions", filename="parenting_time_instructions.pdf", has_addendum=False)
   - motion_instructions: ALDocument.using(title="Instructions", filename="instructions.pdf", has_addendum=False)
@@ -2043,25 +2014,33 @@ objects:
 generic object: ALIndividual
 objects:
   - x.additional_proof: ALDocument.using(title="Additional Proof of Delivery", filename="additional_proof_of_delivery.pdf", has_addendum=False)
+  - x.additional_notice_proof: ALDocument.using(title="Additional Proof of Delivery for Notice", filename="additional_notice_proof_of_delivery.pdf", has_addendum=False)
 ---
 objects:
   - additional_delivery_bundle: ALDocumentBundle.using(elements=[], title= "Additional Proof of Delivery", filename="additional_proof_of_delivery.pdf", has_addendum=False)
+  - additional_motion_delivery_bundle: ALDocumentBundle.using(elements=[], title="Additional Proof of Delivery for Motion", filename="additional_motion_proof_of_delivery.pdf", has_addendum=False)
 ---
 reconsider: True
 code: |
-  deliveries_to_bundle = []
-  additional_delivery_bundle.enabled = False
+  # Rebuild both lists so changing the lawyer answer removes old proof pages.
+  motion_deliveries_to_bundle = []
+  notice_deliveries_to_bundle = []
+  additional_motion_delivery_bundle.enabled = bool(other_parent_has_lawyer)
+  additional_delivery_bundle.enabled = bool(other_parent_has_lawyer)
 
   if other_parent_has_lawyer:
     other_parent_lawyers[0].additional_proof.enabled = True
-    additional_delivery_bundle.enabled = True
-    deliveries_to_bundle.append(other_parent_lawyers[0].additional_proof)
+    other_parent_lawyers[0].additional_notice_proof.enabled = True
+    motion_deliveries_to_bundle.append(other_parent_lawyers[0].additional_proof)
+    notice_deliveries_to_bundle.append(other_parent_lawyers[0].additional_notice_proof)
 
-  additional_delivery_bundle.elements = deliveries_to_bundle
+  additional_motion_delivery_bundle.elements = motion_deliveries_to_bundle
+  additional_delivery_bundle.elements = notice_deliveries_to_bundle
   refresh_delivery_bundle = True
 
 ---
 code: |
+  refresh_delivery_bundle
   parenting_time_instructions.enabled = True
   motion_instructions.enabled = True
   motion_instructions_bundle.enabled = True
@@ -2079,7 +2058,7 @@ objects:
 ---
 objects:
   - motion_instructions_bundle: ALDocumentBundle.using(elements=[parenting_time_instructions, motion_instructions], filename="instructions.pdf", title="Instructions")
-  - motion_single_pdf_bundle: ALDocumentBundle.using(elements=[motion_attachment, proof_of_delivery], filename="motion.pdf", title="Motion")
+  - motion_single_pdf_bundle: ALDocumentBundle.using(elements=[motion_attachment, proof_of_delivery, additional_motion_delivery_bundle], filename="motion.pdf", title="Motion")
   - notice_single_pdf_bundle: ALDocumentBundle.using(elements=[notice_attachment, additional_delivery_bundle], filename="notice.pdf", title="Notice of Court Date for Motion")
 ---
 attachment:
@@ -2136,28 +2115,22 @@ attachment:
         ${ users[0].name_full() }
         % endif
     - "case_number": ${ case_number }
-    - "motion_summary": ${ "Modify Parenting Time Schedule" }       
+    - "motion_summary": ${ "Modify Parenting Time Schedule" if have_set_schedule else "Specify Parenting Time Schedule" }
     - "hearing_date": ${ hearing_date if (defined('hearing_date') and has_court_date) else '' }
     - "hearing_time": ${ format_time(hearing_time, format='h:mm') if (defined('hearing_time') and has_court_date) else '' }
     - "hearing_am_yes": ${ True if (has_court_date and format_time(hearing_time, format='a')=='AM') else '' }
     - "hearing_pm_yes": ${ True if (has_court_date and format_time(hearing_time, format='a')=='PM') else '' }
-    - "in_person_yes": ${ attend_court['in_person'] }
+    - "in_person_yes": ${ attend_court['in_person'] if has_court_date else '' }
     - "courthouse_address": |
-        % if has_court_date:
-        % if courtroom != "":          
-        ${ courthouse_info + ", Room # " + courtroom }
-        % endif
-        % else:
-        ${ courthouse_info }          
-        % endif
-    - "hearing_courtroom": "${ courtroom if defined('courtroom') else '' }"   
-    - "remote_yes": ${  attend_court['remote'] }
-    - "remote_url": ${ remote_website if attend_court['remote'] == True else '' }
-    - "remote_login": ${  remote_login if attend_court['remote'] == True else ''}
-    - "remote_phone": ${ phone_number_formatted(remote_phone) if attend_court['remote'] == True else '' }
+        ${ courthouse_info + (", Room # " + courtroom if has_court_date and defined('courtroom') and courtroom else '') }
+    - "hearing_courtroom": ${ courtroom if has_court_date and defined('courtroom') else '' }
+    - "remote_yes": ${ attend_court['remote'] if has_court_date else '' }
+    - "remote_url": ${ remote_website if has_court_date and attend_court['remote'] else '' }
+    - "remote_login": ${ remote_login if has_court_date and attend_court['remote'] else '' }
+    - "remote_phone": ${ phone_number_formatted(remote_phone) if has_court_date and attend_court['remote'] and remote_phone else '' }
     - "clerk_phone": ${ trial_court.phone }
     - "clerk_website": ${ trial_court.website }
-    - "e_sign_name": s${ users[0].name_full() if e_signature else '' }
+    - "e_sign_name": ${ users[0].name_full() if e_signature else '' }
     - "sign_name": ${ users[0].name_full() if e_signature else '' }
     - "for_self1_yes": ${True}
     - "user_address": ${ users[0].address.on_one_line(bare=True) }
@@ -2166,18 +2139,18 @@ attachment:
 
     # Skip lawyer fields
 
-    - "document_name": ${ "Motion to Change Parenting Time Schedule" }
+    - "document_name": ${ "Notice of Court Date for Motion" }
     - "delivery_party_name_full": ${ delivery_parties[0].name_full() }
     - "is_delivery_party_email_yes": ${ delivery_parties[0].email_delivery if delivery_parties[0].knows_delivery_method else '' }
     - "delivery_party_email": ${ delivery_parties[0].delivery_email if delivery_parties[0].knows_delivery_method else '' }
     - "is_delivery_party_efm_yes": ${ delivery_parties[0].efm_delivery if delivery_parties[0].knows_delivery_method else '' }
     - "delivery_party_email_efsp": ${ delivery_parties[0].delivery_efsp_email if delivery_parties[0].knows_delivery_method else '' }
-    - "is_delivery_party1_not_electronic": ${ True if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery else '' }
+    - "is_delivery_party_not_electronic": ${ True if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery else '' }
     - "delivery_party_address": ${ delivery_parties[0].address.on_one_line(bare=True) if delivery_parties[0].knows_delivery_method else "" }
 
     - "is_delivery_party_hand_yes": ${ delivery_parties[0].hand_delivery if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery else '' }
     - "is_delivery_party_mail_yes": ${ delivery_parties[0].mail_delivery if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery else '' }
-    - "delivery_party1_mail_location": |
+    - "delivery_party_mail_location": |
         % if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery and delivery_parties[0].mail_delivery:
         % if delivery_parties[0].delivery_mail_address != "" and delivery_parties[0].delivery_mail_city != "" and delivery_parties[0].delivery_mail_state != "":
         ${delivery_parties[0].delivery_mail_address }, ${delivery_parties[0].delivery_mail_city}, ${ state_name(delivery_parties[0].delivery_mail_state) }
@@ -2209,15 +2182,15 @@ attachment:
         % endif
         % else:
         ${""}
-        % endif    
+        % endif
     - "delivery_party_date": ${ delivery_parties[0].delivery_date if delivery_parties[0].knows_delivery_method and delivery_parties[0].knows_delivery_date else '' }
     - "delivery_party_time": ${ format_time(delivery_parties[0].delivery_time, format='h:mm a') if delivery_parties[0].knows_delivery_method and delivery_parties[0].knows_delivery_time else '' }
     - "is_additional_proof_delivery_yes": ${ delivery_parties.number() > 1 }
     - "delivery_for_self_yes": ${ True }
     - "delivery_e_sign_name": ${ users[0].name_full() if e_signature else '' }
     - "delivery_sign_name2": ${ users[0].name_full() if e_signature else '' }
-    - "delivery_user_phone": ${ users[0].phone_number() if e_signature else '' }
-    - "delivery_user_email": ${ users[0].email if e_signature else '' }
+    - "delivery_user_phone": ${ phone_number_formatted(users[0].phone_number) if e_signature else '' }
+    - "delivery_user_email": ${ users[0].email if e_signature and users[0].has_email_address else '' }
     - "delivery_user_address": ${ users[0].address.on_one_line(bare=True) if e_signature else '' }
 ---
 attachment:
@@ -2242,9 +2215,9 @@ attachment:
         ${ users[0].name_full() }
         % endif
     - "case_number": ${ case_number }
-    - "document_name": ${ "Motion to Change Parenting Time Schedule" }
+    - "document_name": ${ "Motion to Modify Parenting Time" if have_set_schedule else "Motion to Specify Parenting Time" }
     - "delivery_party_name_full": ${ delivery_parties[0].name_full() }
-    - "delivery_party_address": ${ delivery_parties[0].address.on_one_line(bare=True) if delivery_parties[0].knows_delivery_method else "" }
+    - "delivery_party_mailing_address": ${ delivery_parties[0].address.on_one_line(bare=True) if delivery_parties[0].knows_delivery_method else "" }
     - "delivery_party_email": ${ delivery_parties[0].delivery_email if delivery_parties[0].knows_delivery_method else '' }
     - "delivery_party_email_efsp": ${ delivery_parties[0].delivery_efsp_email if delivery_parties[0].knows_delivery_method else '' }
     - "is_delivery_party_hand_yes": ${ delivery_parties[0].hand_delivery if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery else '' }
@@ -2252,19 +2225,49 @@ attachment:
     - "is_delivery_party_efm_yes": ${ delivery_parties[0].efm_delivery if delivery_parties[0].knows_delivery_method else '' }
     - "is_delivery_party_email_yes": ${ delivery_parties[0].email_delivery if delivery_parties[0].knows_delivery_method else '' }
     - "is_delivery_party_not_electronic": ${ True if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery else '' }
-    - "delivery_party_mail_location": ${ delivery_parties[0].delivery_mail_address if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery and delivery_parties[0].mail_delivery else '' }
+    - "delivery_party_mail_location": |
+        % if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery and delivery_parties[0].mail_delivery:
+        % if delivery_parties[0].delivery_mail_address != "" and delivery_parties[0].delivery_mail_city != "" and delivery_parties[0].delivery_mail_state != "":
+        ${delivery_parties[0].delivery_mail_address }, ${delivery_parties[0].delivery_mail_city}, ${ state_name(delivery_parties[0].delivery_mail_state) }
+        % elif delivery_parties[0].delivery_mail_address != "" and delivery_parties[0].delivery_mail_city != "":
+        ${delivery_parties[0].delivery_mail_address }, ${delivery_parties[0].delivery_mail_city}
+        % elif delivery_parties[0].delivery_mail_address != "" and delivery_parties[0].delivery_mail_state != "":
+        ${delivery_parties[0].delivery_mail_address }, ${ state_name(delivery_parties[0].delivery_mail_state) }
+        % elif delivery_parties[0].delivery_mail_city != "" and delivery_parties[0].delivery_mail_state != "":
+        ${delivery_parties[0].delivery_mail_city}, ${ state_name(delivery_parties[0].delivery_mail_state) }
+        % elif delivery_parties[0].delivery_mail_address != "":
+        ${delivery_parties[0].delivery_mail_address}
+        % elif delivery_parties[0].delivery_mail_city != "":
+        ${delivery_parties[0].delivery_mail_city}
+        % else:
+        ${state_name(delivery_parties[0].delivery_mail_state)}
+        % endif
+        % else:
+        ${ "" }
+        % endif
     - "is_delivery_party_jail_yes": ${ delivery_parties[0].jail_delivery if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery else '' }
-    - "delivery_party_jail_name": ${ delivery_parties[0].delivery_jail_name if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery and delivery_parties[0].jail_delivery else '' }
+    - "delivery_party_jail_name": |
+        % if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery and delivery_parties[0].jail_delivery:
+        % if delivery_parties[0].delivery_jail_name != "" and delivery_parties[0].jail_delivery_address.address != "" and delivery_parties[0].jail_delivery_address.city != "" and delivery_parties[0].jail_delivery_address.state != "":
+        ${ delivery_parties[0].delivery_jail_name }, ${ delivery_parties[0].jail_delivery_address.on_one_line(bare=True)}
+        % elif delivery_parties[0].delivery_jail_name == "":
+        ${ delivery_parties[0].jail_delivery_address.on_one_line(bare=True)}
+        % else:
+        ${ delivery_parties[0].delivery_jail_name }
+        % endif
+        % else:
+        ${""}
+        % endif
     - "delivery_party_date": ${ delivery_parties[0].delivery_date if delivery_parties[0].knows_delivery_method and delivery_parties[0].knows_delivery_date else '' }
     - "delivery_party_time": ${ format_time(delivery_parties[0].delivery_time, format='h:mm a') if delivery_parties[0].knows_delivery_method and delivery_parties[0].knows_delivery_time else '' }
     - "sign_name": ${ users[0].name_full() if e_signature else '' }
-    - "e_sign_name": s${ users[0].name_full() if e_signature else '' }
+    - "e_sign_name": ${ users[0].name_full() if e_signature else '' }
     - "for_self": ${ True }
     - "user_mail_address_one_line": ${ users[0].address.on_one_line(bare=True) }
     - "user_phone_number": ${ phone_number_formatted(users[0].phone_number) }
     - "user_email": ${ users[0].email if users[0].has_email_address else '' }
 ---
-# Additional proof of delivery form generated for each delivery party beyond the first.
+# Lawyer's proof of delivery for the Motion.
 generic object: ALIndividual
 attachment:
   variable name: x.additional_proof[i]
@@ -2288,9 +2291,9 @@ attachment:
         ${ users[0].name_full() }
         % endif
     - "case_number": ${ case_number }
-    - "document_name": ${ "Motion to Change Parenting Time Schedule" }
+    - "document_name": ${ "Motion to Modify Parenting Time" if have_set_schedule else "Motion to Specify Parenting Time" }
     - "delivery_party_name_full": ${ x.name_full() }
-    - "delivery_party_address": ${ x.address.on_one_line(bare=True) if x.knows_delivery_method else "" }
+    - "delivery_party_mailing_address": ${ x.address.on_one_line(bare=True) if x.knows_delivery_method else "" }
     - "delivery_party_email": ${ x.delivery_email if x.knows_delivery_method else '' }
     - "delivery_party_email_efsp": ${ x.delivery_efsp_email if x.knows_delivery_method else '' }
     - "is_delivery_party_hand_yes": ${ x.hand_delivery if x.knows_delivery_method and x.physical_delivery else '' }
@@ -2298,13 +2301,119 @@ attachment:
     - "is_delivery_party_efm_yes": ${ x.efm_delivery if x.knows_delivery_method else '' }
     - "is_delivery_party_email_yes": ${ x.email_delivery if x.knows_delivery_method else '' }
     - "is_delivery_party_not_electronic": ${ True if x.knows_delivery_method and x.physical_delivery else '' }
-    - "delivery_party_mail_location": ${ x.delivery_mail_address if x.knows_delivery_method and x.physical_delivery and x.mail_delivery else '' }
+    - "delivery_party_mail_location": |
+        % if x.knows_delivery_method and x.physical_delivery and x.mail_delivery:
+        % if x.delivery_mail_address != "" and x.delivery_mail_city != "" and x.delivery_mail_state != "":
+        ${x.delivery_mail_address }, ${x.delivery_mail_city}, ${ state_name(x.delivery_mail_state) }
+        % elif x.delivery_mail_address != "" and x.delivery_mail_city != "":
+        ${x.delivery_mail_address }, ${x.delivery_mail_city}
+        % elif x.delivery_mail_address != "" and x.delivery_mail_state != "":
+        ${x.delivery_mail_address }, ${ state_name(x.delivery_mail_state) }
+        % elif x.delivery_mail_city != "" and x.delivery_mail_state != "":
+        ${x.delivery_mail_city}, ${ state_name(x.delivery_mail_state) }
+        % elif x.delivery_mail_address != "":
+        ${x.delivery_mail_address}
+        % elif x.delivery_mail_city != "":
+        ${x.delivery_mail_city}
+        % else:
+        ${state_name(x.delivery_mail_state)}
+        % endif
+        % else:
+        ${ "" }
+        % endif
     - "is_delivery_party_jail_yes": ${ x.jail_delivery if x.knows_delivery_method and x.physical_delivery else '' }
-    - "delivery_party_jail_name": ${ x.delivery_jail_name if x.knows_delivery_method and x.physical_delivery and x.jail_delivery else '' }
+    - "delivery_party_jail_name": |
+        % if x.knows_delivery_method and x.physical_delivery and x.jail_delivery:
+        % if x.delivery_jail_name and x.jail_delivery_address.on_one_line(bare=True):
+        ${ x.delivery_jail_name }, ${ x.jail_delivery_address.on_one_line(bare=True) }
+        % elif x.delivery_jail_name:
+        ${ x.delivery_jail_name }
+        % else:
+        ${ x.jail_delivery_address.on_one_line(bare=True) }
+        % endif
+        % else:
+        ${ "" }
+        % endif
     - "delivery_party_date": ${ x.delivery_date if x.knows_delivery_method and x.knows_delivery_date else '' }
-    - "delivery_party_time": ${ format_time(x.delivery_time, format='h:mm a') if x.knows_delivery_method and x.knows_delivery_date else '' }
+    - "delivery_party_time": ${ format_time(x.delivery_time, format='h:mm a') if x.knows_delivery_method and x.knows_delivery_time else '' }
     - "sign_name": ${ users[0].name_full() if e_signature else '' }
-    - "e_sign_name": s${ users[0].name_full() if e_signature else '' }
+    - "e_sign_name": ${ users[0].name_full() if e_signature else '' }
+    - "for_self": ${ True }
+    - "user_mail_address_one_line": ${ users[0].address.on_one_line(bare=True) }
+    - "user_phone_number": ${ phone_number_formatted(users[0].phone_number) }
+    - "user_email": ${ users[0].email if users[0].has_email_address else '' }
+---
+# Lawyer's proof of delivery for the Notice; separate from the Motion proof.
+generic object: ALIndividual
+attachment:
+  variable name: x.additional_notice_proof[i]
+  name: additional_notice_proof_of_delivery
+  filename: additional_notice_proof_of_delivery
+  skip undefined: True
+  editable: False
+  pdf template file: proof_of_delivery.pdf
+  fields:
+    - "trial_court_county": ${ trial_court.address.county }
+    - "plaintiffs": |
+        % if party_label == 'plaintiff' or party_label == 'petitioner':
+        ${ users[0].name_full() }
+        % else:
+        ${ other_parties[0].name_full() }
+        % endif
+    - "defendants": |
+        % if party_label == 'plaintiff' or party_label == 'petitioner':
+        ${ other_parties[0].name_full() }
+        % else:
+        ${ users[0].name_full() }
+        % endif
+    - "case_number": ${ case_number }
+    - "document_name": ${ "Notice of Court Date for Motion" }
+    - "delivery_party_name_full": ${ x.name_full() }
+    - "delivery_party_mailing_address": ${ x.address.on_one_line(bare=True) if x.knows_delivery_method else "" }
+    - "delivery_party_email": ${ x.delivery_email if x.knows_delivery_method else '' }
+    - "delivery_party_email_efsp": ${ x.delivery_efsp_email if x.knows_delivery_method else '' }
+    - "is_delivery_party_hand_yes": ${ x.hand_delivery if x.knows_delivery_method and x.physical_delivery else '' }
+    - "is_delivery_party_mail_yes": ${ x.mail_delivery if x.knows_delivery_method and x.physical_delivery else '' }
+    - "is_delivery_party_efm_yes": ${ x.efm_delivery if x.knows_delivery_method else '' }
+    - "is_delivery_party_email_yes": ${ x.email_delivery if x.knows_delivery_method else '' }
+    - "is_delivery_party_not_electronic": ${ True if x.knows_delivery_method and x.physical_delivery else '' }
+    - "delivery_party_mail_location": |
+        % if x.knows_delivery_method and x.physical_delivery and x.mail_delivery:
+        % if x.delivery_mail_address != "" and x.delivery_mail_city != "" and x.delivery_mail_state != "":
+        ${x.delivery_mail_address }, ${x.delivery_mail_city}, ${ state_name(x.delivery_mail_state) }
+        % elif x.delivery_mail_address != "" and x.delivery_mail_city != "":
+        ${x.delivery_mail_address }, ${x.delivery_mail_city}
+        % elif x.delivery_mail_address != "" and x.delivery_mail_state != "":
+        ${x.delivery_mail_address }, ${ state_name(x.delivery_mail_state) }
+        % elif x.delivery_mail_city != "" and x.delivery_mail_state != "":
+        ${x.delivery_mail_city}, ${ state_name(x.delivery_mail_state) }
+        % elif x.delivery_mail_address != "":
+        ${x.delivery_mail_address}
+        % elif x.delivery_mail_city != "":
+        ${x.delivery_mail_city}
+        % else:
+        ${state_name(x.delivery_mail_state)}
+        % endif
+        % else:
+        ${ "" }
+        % endif
+    - "is_delivery_party_jail_yes": ${ x.jail_delivery if x.knows_delivery_method and x.physical_delivery else '' }
+    - "delivery_party_jail_name": |
+        % if x.knows_delivery_method and x.physical_delivery and x.jail_delivery:
+        % if x.delivery_jail_name and x.jail_delivery_address.on_one_line(bare=True):
+        ${ x.delivery_jail_name }, ${ x.jail_delivery_address.on_one_line(bare=True) }
+        % elif x.delivery_jail_name:
+        ${ x.delivery_jail_name }
+        % else:
+        ${ x.jail_delivery_address.on_one_line(bare=True) }
+        % endif
+        % else:
+        ${ "" }
+        % endif
+    - "delivery_party_date": ${ x.delivery_date if x.knows_delivery_method and x.knows_delivery_date else '' }
+    - "delivery_party_time": ${ format_time(x.delivery_time, format='h:mm a') if x.knows_delivery_method and x.knows_delivery_time else '' }
+    - "sign_name": ${ users[0].name_full() if e_signature else '' }
+    - "e_sign_name": ${ users[0].name_full() if e_signature else '' }
     - "for_self": ${ True }
     - "user_mail_address_one_line": ${ users[0].address.on_one_line(bare=True) }
     - "user_phone_number": ${ phone_number_formatted(users[0].phone_number) }
