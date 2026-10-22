@@ -46,7 +46,6 @@ code: |
   al_form_type = 'existing_case'
   ilao_easy_form_title = "Make or change a parenting time schedule"
   ilao_easy_form_url = "https://www.illinoislegalaid.org/legal-information/make-or-change-parenting-time-schedule"
-  form_name = "Petition to Modify Parenting Time Schedule"
   github_user = 'IllinoisLegalAidOnline'
   github_repo_name = 'docassemble-ParentingTimeSchedule'
   allowed_courts = ['Circuit']
@@ -90,8 +89,8 @@ code: |
   nav.set_section('section_about_you')
   users[0].name.first
   users[0].birthdate
-  users[0].address.address
   hide_address
+  users[0].address.address
   users[0].phone_number
 
   nav.set_section('section_about_children')
@@ -280,7 +279,7 @@ id: child support note
 question: |
   Note about child support
 subquestion: |
-  Parenting time is not dependent on payment of child support. However, if you file a petition the judge may review 
+  Parenting time is not dependent on payment of child support. However, if you file a motion the judge may review
   your case file and issue a new support order including interest on missed payments.
 continue button field: child_support_note
 ---
@@ -289,11 +288,11 @@ continue button field: whats_next
 question: |
   What's next
 subquestion: |
-  After you download your parenting time *Motion*, you must file it with the court. This program **does not file** your *Motion* for you.
+  After you download your parenting time Motion, you must file it with the court. This program **does not file** your Motion for you.
   
   You may need to schedule a court date for when the judge will hear your motion. The scheduling process is different depending on your location and case type. Check with your local circuit clerk for how to schedule a motion hearing.
   
-  Finally, you will need to send your *Motion* and *Notice of Court Date for Motion* forms to the other parent.
+  Finally, you will need to send your Motion and *Notice of Court Date for Motion* forms to the other parent.
   
   To learn more, read the instructions you can download at the end of this program. 
 ---
@@ -426,6 +425,10 @@ question: |
   % else:
   What is your ${ ordinal(i) } child's name?
   % endif
+subquestion: |
+  % if i==0:
+  If you have more than one child, we will ask about them on another screen.
+  % endif
 fields:
   - code: |
       children[i].name_fields()
@@ -434,7 +437,7 @@ id: child birthdate
 question: |
   When was ${children[i].name_full()} born?
 fields:
-  - Birth date: children[i].birthdate
+  - Date of birth: children[i].birthdate
     datatype: BirthDate
     alMin: ${ today().minus(days=6570).format("yyyy-MM-dd") }
     alMax: ${ today().format("yyyy-MM-dd") }
@@ -620,13 +623,16 @@ fields:
       variable: have_set_schedule
       is: False
 ---
+code: |
+  form_name = "Motion to Modify Parenting Time Schedule" if have_set_schedule else "Motion to Specify Parenting Time Schedule"
+---
 id: changed circumstances
 question: |
   Changed circumstances
 subquestion: |
   If you want to change a parenting time or visitation plan, you need to tell the judge why the current plan will not work anymore.
 
-  Your petition should explain what circumstance has changed since the last parenting time or visitation order and why changing parenting time would be in the best interest of the child.
+  Your motion should explain what circumstance has changed since the last parenting time or visitation order and why changing parenting time would be in the best interest of the child.
 
   Be specific. If the plan used to be OK, but now your family's situation has changed, explain what has changed.
 
@@ -639,7 +645,7 @@ fields:
 ---
 template: changed_circumstances_examples
 subject: |
-  What are some examples of changed circumstances?
+  **What are some examples of changed circumstances?**
 content: |
   You may want to ask the Court to modify or change an existing parenting time or visitation order if:
 
@@ -658,10 +664,10 @@ question: |
   When do you want the new parenting time schedule to start?
 fields:
   - no label: schedule_start
+    datatype: radio
     choices:
       - I will choose a start date.: specific
       - When the court orders the new schedule.: order
-
   - no label: schedule_start_date
     datatype: ThreePartsDate
     alMin: today()
@@ -673,7 +679,7 @@ id: weekly parenting time
 question: |
   Weekly parenting time
 subquestion: |
-  The *${form_name}* will include a parenting time schedule for when each parent 
+  The ${form_name} will include a parenting time schedule for when each parent
   will have the children. The form breaks down the time on an hour-by-hour basis. 
   The forms allow for up to four different weekly schedules.
 
@@ -698,7 +704,7 @@ id: parent initials
 question: |
   Initials for each parent
 subquestion: |
-  Enter the initials for each parent. These initials will be used in the *${form_name}* to identify who has parenting time.
+  Enter the initials for each parent. These initials will be used in the ${form_name} to identify who has parenting time.
 fields:
   - ${ users[0].name_full() }: users[0].name.initials
     maxlength: 4
@@ -1336,7 +1342,7 @@ subquestion: |
   If the questions so far have not covered everything about the parenting time 
   schedule, you can add more details.
   
-  You can preview the *${form_name}* at the end of the program and add more later.
+  You can preview the ${form_name} at the end of the program and add more later.
 fields:
   - no label: additional_time
     datatype: yesnoradio
@@ -1345,7 +1351,7 @@ id: additional parenting time details
 question: |
   What else do you want to include about parenting time?
 subquestion:
-  If you need more space, you can attach additional pages to your *Parenting Plan*. 
+  If you need more space, you can attach additional pages to your ${form_name}. 
 fields:
   - no label: additional_time_details
     datatype: area
@@ -1385,9 +1391,6 @@ subquestion: |
 fields:
   - Case number: case_number
     maxlength: 19
-  - "IV-D case number (optional)": ivd_case_number
-    maxlength: 25
-    required: False
 ---
 template: case_number_help
 subject: |
@@ -1447,7 +1450,7 @@ question: |
 subquestion: |
   In some counties, the circuit clerk can give you a hearing date before you file your motion. In other counties, you will get a hearing date when you file your motion. If you have this information now, you can add it to your forms.
   
-  If the clerk gives you the hearing date after you file your *Motion*, you can add it to your *Notice of Court Date for Motion* later. 
+  If the clerk gives you the hearing date after you file your Motion, you can add it to your *Notice of Court Date for Motion* later.
   
   **Note:** Be sure to add the hearing information to your *Notice of Court Date for Motion* before you send it to other parties in your case.
 fields:
@@ -1818,7 +1821,7 @@ content: |
 ---
 ##################### ABOUT YOU #####################
 ---
-id: your name
+id: user name
 sets:
   - users[0].name.first
   - users[0].name.last
@@ -1830,9 +1833,19 @@ fields:
   - code: |
       users[0].name_fields()
 ---
-
-
-id: hide address
+id: user birthdate
+question: |
+  When were you born?
+fields:
+  - Date of birth: users[0].birthdate
+    datatype: BirthDate
+    alMin: ${ today().minus(days=6570).format("yyyy-MM-dd") }
+    alMax: ${ today().format("yyyy-MM-dd") }
+validation code: |
+  if users[0].age_in_years() < 18:
+    validation_error("You must be 18 years or older to use this program.")
+---
+id: hide user address
 question: |
   Do you want to keep your address hidden?
 subquestion: |
@@ -1841,7 +1854,7 @@ fields:
   - no label: hide_address
     datatype: yesnoradio
 ---
-id: get user address
+id: user address
 question: |
   % if hide_address:
   What is your mailing address?
@@ -1922,7 +1935,7 @@ subquestion: |
 
   <div class="alert alert-info ilao-info" role="alert">
     <h6 class="alert-heading">What it means to sign your forms</h6>
-    <p>By signing the parenting time <i>Motion</i> and Proof of Delivery section of your forms, you are certifying that:</p>
+    <p>By signing the parenting time Motion and Proof of Delivery section of your forms, you are certifying that:</p>
     <p><ul>
       <li>Everything on the forms is true and correct, or you have been informed or believe it to be true and correct, and</li>
       <li>You understand that making a false statement on the forms is perjury and has penalties provided by law.</li>    </ul></p>
@@ -1992,7 +2005,7 @@ under: |
 generic object: ALDocumentBundle
 template: x.send_email_template
 subject: |
-  Parenting time schedule forms
+  **Parenting time schedule forms**
 content: |
   Your forms are attached.
   

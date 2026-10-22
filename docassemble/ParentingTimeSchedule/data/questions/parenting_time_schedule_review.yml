@@ -9,23 +9,6 @@ subquestion: |
   Edit your answers below.
 review:
   - note: |
-      <h4>Do you qualify?</h4>
-  - Edit: is_user_parent
-    button: |
-      **Are you a parent of the children?** ${ word(yesno(is_user_parent)) }
-  - Edit: has_existing_order
-    button: |
-      **Do you have an existing parenting time or visitation order?** ${ word(yesno(has_existing_order)) }
-  - Edit: is_order_from_il
-    button: |
-      **Is the order from an Illinois court?** ${ word(yesno(is_order_from_il)) }
-  - Edit: is_child_resident
-    button: |
-      **Did the children live in Illinois for the last 6 months?** ${ word(yesno(is_child_resident)) }
-  - Edit: any_domestic_abuse
-    button: |
-      **Has the other parent reported domestic violence or abuse?** ${ word(yesno(any_domestic_abuse)) }
-  - note: |
       <h4>About you</h4>
   - Edit: users[0].name.first
     button: |
@@ -361,7 +344,7 @@ review:
       **Your email address:** ${ users[0].email }
     show if: users[0].has_email_address
 ---
-id: about children review screen
+id: children section review screen
 section: About your children
 event: section_about_children
 question: |
@@ -371,12 +354,11 @@ subquestion: |
 review:
   - Edit: children.revisit
     button: |
-      **Children:**
-      <ul>
-      % for child in children:
-      <li>${ child.name_full() }, born ${ child.birthdate }, lives with you: ${ word(yesno(child.lives_with_user)) }</li>
+      **Your children with ${other_parties[0].name_full()}: (Edit to change names and birthdates)**
+
+      % for my_var in children:
+        * ${ my_var.name_full() }, born: ${ my_var.birthdate }, lives with you: ${ word(yesno(my_var.lives_with_user)) }
       % endfor
-      </ul>
 ---
 id: about other parent review screen
 section: About the other parent
@@ -754,35 +736,49 @@ columns:
       action_button_html(url_action(row_item.attr_name("review_delivery")), label="Edit", icon="pencil-alt")
 confirm: True
 ---
-id: children table
-table: children.table
-rows: children
-columns:
-  - Child name: |
-      row_item.name.full()
-  - Age: |
-      row_item.age_in_years() if row_item.age_in_years() > 1 else str(row_item.age_in_months()) + ' months'
-  - Lives with you?: |
-      word(yesno(row_item.lives_with_user))
-  - Edit name: |
-      action_button_html(url_action(row_item.attr_name("name.first")), label="Edit", icon="pencil-alt")
-  - Edit age: |  
-      action_button_html(url_action(row_item.attr_name("birthdate")), label="Edit", icon="pencil-alt")
-  - Edit residence: |
-      action_button_html(url_action(row_item.attr_name("lives_with_user")), label="Edit", icon="pencil-alt")
-delete buttons: True
-confirm: True
----
-id: children review screen
+id: children revisit
 continue button field: children.revisit
 question: |
-  Edit information about your children
+  Edit the children you have with ${other_parties[0].name_full()}
 subquestion: |
   ${ children.table }
 
   % if children.number_gathered() < 7:
   ${ children.add_action() }
   % endif
+---
+table: children.table
+rows: children
+columns:
+  - Name: |
+      row_item.name_full() if defined("row_item.name.first") else ""
+  - Birthdate: |
+      row_item.birthdate if defined("row_item.birthdate") else ""
+  - Lives with you?: |
+      word(yesno(row_item.lives_with_user))
+  - Edit: |
+      action_button_html(url_action(row_item.attr_name("review_child_details")), label="Edit", icon="pencil-alt")
+delete buttons: True
+confirm: True
+---
+id: child details
+continue button field: x.review_child_details
+generic object: ALIndividual
+question: |
+  Edit ${ x.name_full() }'s information
+review: 
+  - Edit: x.name.first
+    button: |
+      **Name:**
+      ${ x.name_full()  }
+  - Edit: x.birthdate
+    button: |
+      **Birth date:**
+      ${ x.birthdate }
+  - Edit: x.lives_with_user
+    button: |
+      **Lives with you?:**
+      ${ word(yesno(x.lives_with_user)) }
 ---
 id: week table
 table: week.table
