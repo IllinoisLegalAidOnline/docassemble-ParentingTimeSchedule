@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "docassemble.ParentingTimeSchedule"
-version = "1.0.0"
+version = "0.1.3"
 description = "A docassemble extension."
 readme = "README.md"
 authors = [
