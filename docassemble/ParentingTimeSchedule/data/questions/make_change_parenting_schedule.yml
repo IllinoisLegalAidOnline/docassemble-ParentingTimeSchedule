@@ -53,7 +53,6 @@ code: |
 # Road map
 sections:
   - section_intro: Start
-  - section_qualify: Do you qualify?
   - section_about_you: About you
   - section_about_children: About your children
   - section_about_other_parent: About the other parent
@@ -73,8 +72,6 @@ code: |
   accept_terms
   child_support_note
   whats_next
-
-  nav.set_section('section_qualify')
   if not is_user_parent:
     user_not_parent_kickout
   if not has_existing_order:
@@ -272,7 +269,7 @@ question: |
 subquestion: |
   If you already have a parenting time schedule, you will need to show changed circumstances.
 
-  If you have an order for parenting time or visitation but no schedule, you don't need to show changed circumstances.
+  If you have an order for parenting time or visitation but no schedule, you do not need to show changed circumstances.
 continue button field: about_parenting_time
 ---
 id: child support note
@@ -322,7 +319,7 @@ fields:
 ---
 id: is child resident
 question: |
-  Did the children whose parenting time you want to change live in IL for the last 6 months?
+  Have the children whose parenting time you want to change lived in Illinois for the last 6 months?
 subquestion: |
   Consider the six months immediately before you file. The children must have lived in Illinois for more than half of that time.
 fields:
@@ -623,6 +620,9 @@ fields:
       variable: have_set_schedule
       is: False
 ---
+reconsider: True
+depends on:
+  - have_set_schedule
 code: |
   form_name = "Motion to Modify Parenting Time Schedule" if have_set_schedule else "Motion to Specify Parenting Time Schedule"
 ---
@@ -649,15 +649,15 @@ subject: |
 content: |
   You may want to ask the Court to modify or change an existing parenting time or visitation order if:
 
-  -A parent's work schedule has changed and they are no longer able to make the scheduled parenting times;
+  - A parent's work schedule has changed and they are no longer able to make the scheduled parenting times;
 
-  -A parent has moved and the parenting time schedule is no longer working;
+  - A parent has moved and the parenting time schedule is no longer working;
 
-  -A parent has not followed the schedule written in the Parenting time order;
+  - A parent has not followed the schedule written in the Parenting time order;
 
-  -The children have gotten older and now have different needs and interests; OR
+  - The children have gotten older and now have different needs and interests; OR
 
-  -Any other reason that would be in the best interests of the children.
+  - Any other reason that would be in the best interests of the children.
 ---
 id: schedule_start
 question: |
@@ -668,7 +668,8 @@ fields:
     choices:
       - I will choose a start date.: specific
       - When the court orders the new schedule.: order
-  - no label: schedule_start_date
+  - Select the start date for the new schedule: schedule_start_date
+    label above field: True
     datatype: ThreePartsDate
     alMin: today()
     show if:
@@ -1839,11 +1840,7 @@ question: |
 fields:
   - Date of birth: users[0].birthdate
     datatype: BirthDate
-    alMin: ${ today().minus(days=6570).format("yyyy-MM-dd") }
     alMax: ${ today().format("yyyy-MM-dd") }
-validation code: |
-  if users[0].age_in_years() < 18:
-    validation_error("You must be 18 years or older to use this program.")
 ---
 id: hide user address
 question: |
@@ -1978,7 +1975,6 @@ event: get_docs_screen
 question: |
   Download
 subquestion: |
-  
   Your forms are ready. View and download your forms below. Click **:edit: Make changes** to fix any mistakes.
   
   This program **does not file** your Motion with the court or deliver it to other parties in your case. You will need to do this yourself. Learn about [**e-filing in Illinois**](https://www.illinoiscourts.gov/eservices/information-for-filers-without-lawyers).
@@ -2057,6 +2053,7 @@ code: |
   parenting_time_instructions.enabled = True
   motion_instructions.enabled = True
   motion_instructions_bundle.enabled = True
+  motion_attachment.title = form_name
   motion_attachment.enabled = True  
   motion_single_pdf_bundle.enabled = True 
   notice_attachment.enabled = True
@@ -2094,8 +2091,8 @@ attachment:
 ---
 attachment:
   variable name: motion_attachment[i]
-  name: Motion to modify parenting time
-  filename: ${ space_to_underscore("Motion to modify parenting time") }
+  name: ${ form_name }
+  filename: ${ space_to_underscore(form_name) }
   docx template file: Motion_to_modify_parenting_time.docx
   skip undefined: True
 ---
@@ -2155,11 +2152,11 @@ attachment:
     - "document_name": ${ "Notice of Court Date for Motion" }
     - "delivery_party_name_full": ${ delivery_parties[0].name_full() }
     - "is_delivery_party_email_yes": ${ delivery_parties[0].email_delivery if delivery_parties[0].knows_delivery_method else '' }
-    - "delivery_party_email": ${ delivery_parties[0].delivery_email if delivery_parties[0].knows_delivery_method else '' }
+    - "delivery_party_email": ${ delivery_parties[0].delivery_email if delivery_parties[0].knows_delivery_method and delivery_parties[0].email_delivery else '' }
     - "is_delivery_party_efm_yes": ${ delivery_parties[0].efm_delivery if delivery_parties[0].knows_delivery_method else '' }
-    - "delivery_party_email_efsp": ${ delivery_parties[0].delivery_efsp_email if delivery_parties[0].knows_delivery_method else '' }
+    - "delivery_party_email_efsp": ${ delivery_parties[0].delivery_efsp_email if delivery_parties[0].knows_delivery_method and delivery_parties[0].efm_delivery else '' }
     - "is_delivery_party_not_electronic": ${ True if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery else '' }
-    - "delivery_party_address": ${ delivery_parties[0].address.on_one_line(bare=True) if delivery_parties[0].knows_delivery_method else "" }
+    - "delivery_party_address": ${ delivery_parties[0].address.on_one_line(bare=True) if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery else "" }
 
     - "is_delivery_party_hand_yes": ${ delivery_parties[0].hand_delivery if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery else '' }
     - "is_delivery_party_mail_yes": ${ delivery_parties[0].mail_delivery if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery else '' }
@@ -2186,12 +2183,12 @@ attachment:
     - "is_delivery_party_jail_yes": ${ True if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery and delivery_parties[0].jail_delivery else '' }
     - "delivery_party_jail_name": |
         % if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery and delivery_parties[0].jail_delivery:
-        % if delivery_parties[0].delivery_jail_name != "" and delivery_parties[0].jail_delivery_address.address != "" and delivery_parties[0].jail_delivery_address.city != "" and delivery_parties[0].jail_delivery_address.state != "":
-        ${ delivery_parties[0].delivery_jail_name }, ${ delivery_parties[0].jail_delivery_address.on_one_line(bare=True)}
-        % elif delivery_parties[0].delivery_jail_name == "":
-        ${ delivery_parties[0].jail_delivery_address.on_one_line(bare=True)}
-        % else:
+        % if delivery_parties[0].delivery_jail_name and delivery_parties[0].jail_delivery_address.on_one_line(bare=True):
+        ${ delivery_parties[0].delivery_jail_name }, ${ delivery_parties[0].jail_delivery_address.on_one_line(bare=True) }
+        % elif delivery_parties[0].delivery_jail_name:
         ${ delivery_parties[0].delivery_jail_name }
+        % else:
+        ${ delivery_parties[0].jail_delivery_address.on_one_line(bare=True) }
         % endif
         % else:
         ${""}
@@ -2228,11 +2225,11 @@ attachment:
         ${ users[0].name_full() }
         % endif
     - "case_number": ${ case_number }
-    - "document_name": ${ "Motion to Modify Parenting Time" if have_set_schedule else "Motion to Specify Parenting Time" }
+    - "document_name": ${ form_name }
     - "delivery_party_name_full": ${ delivery_parties[0].name_full() }
-    - "delivery_party_mailing_address": ${ delivery_parties[0].address.on_one_line(bare=True) if delivery_parties[0].knows_delivery_method else "" }
-    - "delivery_party_email": ${ delivery_parties[0].delivery_email if delivery_parties[0].knows_delivery_method else '' }
-    - "delivery_party_email_efsp": ${ delivery_parties[0].delivery_efsp_email if delivery_parties[0].knows_delivery_method else '' }
+    - "delivery_party_mailing_address": ${ delivery_parties[0].address.on_one_line(bare=True) if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery else "" }
+    - "delivery_party_email": ${ delivery_parties[0].delivery_email if delivery_parties[0].knows_delivery_method and delivery_parties[0].email_delivery else '' }
+    - "delivery_party_email_efsp": ${ delivery_parties[0].delivery_efsp_email if delivery_parties[0].knows_delivery_method and delivery_parties[0].efm_delivery else '' }
     - "is_delivery_party_hand_yes": ${ delivery_parties[0].hand_delivery if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery else '' }
     - "is_delivery_party_mail_yes": ${ delivery_parties[0].mail_delivery if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery else '' }
     - "is_delivery_party_efm_yes": ${ delivery_parties[0].efm_delivery if delivery_parties[0].knows_delivery_method else '' }
@@ -2261,12 +2258,12 @@ attachment:
     - "is_delivery_party_jail_yes": ${ delivery_parties[0].jail_delivery if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery else '' }
     - "delivery_party_jail_name": |
         % if delivery_parties[0].knows_delivery_method and delivery_parties[0].physical_delivery and delivery_parties[0].jail_delivery:
-        % if delivery_parties[0].delivery_jail_name != "" and delivery_parties[0].jail_delivery_address.address != "" and delivery_parties[0].jail_delivery_address.city != "" and delivery_parties[0].jail_delivery_address.state != "":
-        ${ delivery_parties[0].delivery_jail_name }, ${ delivery_parties[0].jail_delivery_address.on_one_line(bare=True)}
-        % elif delivery_parties[0].delivery_jail_name == "":
-        ${ delivery_parties[0].jail_delivery_address.on_one_line(bare=True)}
-        % else:
+        % if delivery_parties[0].delivery_jail_name and delivery_parties[0].jail_delivery_address.on_one_line(bare=True):
+        ${ delivery_parties[0].delivery_jail_name }, ${ delivery_parties[0].jail_delivery_address.on_one_line(bare=True) }
+        % elif delivery_parties[0].delivery_jail_name:
         ${ delivery_parties[0].delivery_jail_name }
+        % else:
+        ${ delivery_parties[0].jail_delivery_address.on_one_line(bare=True) }
         % endif
         % else:
         ${""}
@@ -2304,11 +2301,11 @@ attachment:
         ${ users[0].name_full() }
         % endif
     - "case_number": ${ case_number }
-    - "document_name": ${ "Motion to Modify Parenting Time" if have_set_schedule else "Motion to Specify Parenting Time" }
+    - "document_name": ${ form_name }
     - "delivery_party_name_full": ${ x.name_full() }
-    - "delivery_party_mailing_address": ${ x.address.on_one_line(bare=True) if x.knows_delivery_method else "" }
-    - "delivery_party_email": ${ x.delivery_email if x.knows_delivery_method else '' }
-    - "delivery_party_email_efsp": ${ x.delivery_efsp_email if x.knows_delivery_method else '' }
+    - "delivery_party_mailing_address": ${ x.address.on_one_line(bare=True) if x.knows_delivery_method and x.physical_delivery else "" }
+    - "delivery_party_email": ${ x.delivery_email if x.knows_delivery_method and x.email_delivery else '' }
+    - "delivery_party_email_efsp": ${ x.delivery_efsp_email if x.knows_delivery_method and x.efm_delivery else '' }
     - "is_delivery_party_hand_yes": ${ x.hand_delivery if x.knows_delivery_method and x.physical_delivery else '' }
     - "is_delivery_party_mail_yes": ${ x.mail_delivery if x.knows_delivery_method and x.physical_delivery else '' }
     - "is_delivery_party_efm_yes": ${ x.efm_delivery if x.knows_delivery_method else '' }
@@ -2382,9 +2379,9 @@ attachment:
     - "case_number": ${ case_number }
     - "document_name": ${ "Notice of Court Date for Motion" }
     - "delivery_party_name_full": ${ x.name_full() }
-    - "delivery_party_mailing_address": ${ x.address.on_one_line(bare=True) if x.knows_delivery_method else "" }
-    - "delivery_party_email": ${ x.delivery_email if x.knows_delivery_method else '' }
-    - "delivery_party_email_efsp": ${ x.delivery_efsp_email if x.knows_delivery_method else '' }
+    - "delivery_party_mailing_address": ${ x.address.on_one_line(bare=True) if x.knows_delivery_method and x.physical_delivery else "" }
+    - "delivery_party_email": ${ x.delivery_email if x.knows_delivery_method and x.email_delivery else '' }
+    - "delivery_party_email_efsp": ${ x.delivery_efsp_email if x.knows_delivery_method and x.efm_delivery else '' }
     - "is_delivery_party_hand_yes": ${ x.hand_delivery if x.knows_delivery_method and x.physical_delivery else '' }
     - "is_delivery_party_mail_yes": ${ x.mail_delivery if x.knows_delivery_method and x.physical_delivery else '' }
     - "is_delivery_party_efm_yes": ${ x.efm_delivery if x.knows_delivery_method else '' }
