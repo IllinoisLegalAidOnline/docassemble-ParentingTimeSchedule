@@ -621,8 +621,6 @@ fields:
       is: False
 ---
 reconsider: True
-depends on:
-  - have_set_schedule
 code: |
   form_name = "Motion to Modify Parenting Time Schedule" if have_set_schedule else "Motion to Specify Parenting Time Schedule"
 ---
@@ -2014,9 +2012,9 @@ objects:
   - parenting_time_instructions: ALDocument.using(title="Parenting time instructions", filename="parenting_time_instructions.pdf", has_addendum=False)
   - motion_instructions: ALDocument.using(title="Instructions", filename="instructions.pdf", has_addendum=False)
   - motion_attachment: ALDocument.using(title="Motion to Modify Parenting Time", filename="motion.pdf", has_addendum=False)
-  - notice_attachment: ALDocument.using(title="Notice of Court Date for Motion", filename="notice_of_court_date.pdf", has_addendum=False)
+  - notice_attachment: ALDocument.using(title="Notice of Court Date for Motion", filename="notice.pdf", has_addendum=False)
 
-  - order_parenting_time: ALDocument.using(title="Order to Modify Parenting Time", filename="order_parenting_time.pdf", has_addendum=False)
+  - order_parenting_time: ALDocument.using(title="Order to Modify Parenting Time", filename="order.pdf", has_addendum=False)
   - proof_of_delivery: ALDocument.using(title="Proof of Delivery", filename="proof_of_delivery.pdf", has_addendum=False)
 ---
 #This needs to be a generic object because the delivery parties list entries point to entries in other lists.
@@ -2092,14 +2090,14 @@ attachment:
 attachment:
   variable name: motion_attachment[i]
   name: ${ form_name }
-  filename: ${ space_to_underscore(form_name) }
-  docx template file: Motion_to_modify_parenting_time.docx
+  filename: motion.pdf
+  docx template file: Motion.docx
   skip undefined: True
 ---
 attachment:
   variable name: order_parenting_time[i]
   name: Order to modify parenting time
-  filename: ${ space_to_underscore("Order to modify parenting time") }
+  filename: order.pdf
   docx template file: Order.docx
   skip undefined: True
 ---
